@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Discipline Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+    color-scheme:dark;
+    --background:#121212;
+    --surface:#1e1e1e;
+    --surface-light:#252525;
+    --border:#333;
+    --text:#fff;
+    --muted:#a7a7a7;
+    --green:#00c853;
+    --green-dark:#009624;
+    --red:#ef5350;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    background:var(--background);
+    color:var(--text);
+    font-family:Arial, sans-serif;
+    padding:20px;
+}
+
+button,
+input,
+select{
+    font:inherit;
+}
+
+h1{
+    margin:5px 0 25px;
+    text-align:center;
+}
+
+.dashboard{
+    width:min(1500px, 100%);
+    margin:auto;
+}
+
+.toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.toolbar-group{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.month-select{
+    min-width:160px;
+    padding:10px 12px;
+    color:white;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    cursor:pointer;
+}
+
+button{
+    padding:10px 15px;
+    color:white;
+    border:0;
+    border-radius:8px;
+    cursor:pointer;
+    transition:background .2s, transform .1s;
+}
+
+button:active{
+    transform:scale(.98);
+}
+
+.add-button{
+    background:var(--green-dark);
+}
+
+.add-button:hover{
+    background:var(--green);
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(150px, 1fr));
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.card{
+    background:var(--surface);
+    border:1px solid #292929;
+    border-radius:12px;
+    padding:15px;
+    box-shadow:0 8px 24px rgba(0,0,0,.15);
+}
+
+.stat-card{
+    min-height:105px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
+.stat-title{
+    margin-bottom:8px;
+    color:var(--muted);
+    font-size:14px;
+}
+
+.stat-value{
+    font-size:30px;
+    font-weight:bold;
+}
+
+.top{
+    display:grid;
+    grid-template-columns:1fr 2fr;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.chart-card{
+    min-height:320px;
+}
+
+.chart-card h3{
+    margin:0 0 15px;
+}
+
+.chart-wrapper{
+    position:relative;
+    height:250px;
+}
+
+.table-card{
+    padding:0;
+    overflow:hidden;
+}
+
+.table-scroll{
+    width:100%;
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    min-width:1100px;
+    border-collapse:collapse;
+}
+
+th,
+td{
+    height:36px;
+    padding:5px;
+    border:1px solid var(--border);
+    text-align:center;
+    white-space:nowrap;
+}
+
+th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:var(--surface-light);
+    font-size:13px;
+}
+
+tbody tr:hover td:not(.cell){
+    background:#232323;
+}
+
+.task-name{
+    min-width:130px;
+    text-align:left;
+    padding-left:12px;
+    font-weight:bold;
+}
+
+.count{
+    font-weight:bold;
+}
+
+.cell{
+    width:30px;
+    min-width:30px;
+    height:30px;
+    padding:0;
+    background:#222;
+    cursor:pointer;
+    transition:background .15s, box-shadow .15s;
+    user-select:none;
+}
+
+.cell:hover{
+    background:#303030;
+    box-shadow:inset 0 0 0 2px #555;
+}
+
+.cell.done{
+    background:var(--green);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);
+}
+
+.cell.done:hover{
+    background:#00e65c;
+}
+
+.delete-button{
+    padding:6px 9px;
+    background:#4b2424;
+    color:#ffb3b3;
+    font-size:12px;
+}
+
+.delete-button:hover{
+    background:var(--red);
+    color:white;
+}
+
+.empty-state{
+    padding:35px !important;
+    color:var(--muted);
+}
+
+.modal{
+    position:fixed;
+    inset:0;
+    z-index:20;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(0,0,0,.72);
+}
+
+.modal.open{
+    display:flex;
+}
+
+.modal-content{
+    width:min(430px, 100%);
+    padding:22px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+
+.modal-content h2{
+    margin:0 0 20px;
+}
+
+.form-group{
+    margin-bottom:15px;
+}
+
+.form-group label{
+    display:block;
+    margin-bottom:7px;
+    color:#d4d4d4;
+    font-size:14px;
+}
+
+.form-group input{
+    width:100%;
+    padding:11px 12px;
+    color:white;
+    background:#161616;
+    border:1px solid var(--border);
+    border-radius:8px;
+    outline:none;
+}
+
+.form-group input:focus{
+    border-color:var(--green);
+}
+
+.form-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:20px;
+}
+
+.cancel-button{
+    background:#353535;
+}
+
+.save-button{
+    background:var(--green-dark);
+}
+
+@media(max-width:900px){
+    .stats{
+        grid-template-columns:repeat(2, 1fr);
+    }
+
+    .top{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:520px){
+    body{
+        padding:12px;
+    }
+
+    h1{
+        font-size:25px;
+    }
+
+    .stats{
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+    }
+
+    .stat-card{
+        min-height:90px;
+    }
+
+    .stat-value{
+        font-size:24px;
+    }
+
+    .toolbar,
+    .toolbar-group{
+        width:100%;
+    }
+
+    .month-select,
+    .add-button{
+        flex:1;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="dashboard">
+
+<h1>Discipline Dashboard</h1>
+
+<div class="toolbar">
+    <div class="toolbar-group">
+        <label for="monthSelect">Ay:</label>
+        <select id="monthSelect" class="month-select"></select>
+    </div>
+
+    <button id="openTaskModal" class="add-button" type="button">+ Görev Ekle</button>
+</div>
+
+<div class="stats">
+    <div class="card stat-card">
+        <span class="stat-title">Toplam Skor</span>
+        <span class="stat-value" id="totalScore">0</span>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-title">Mevcut Seri</span>
+        <span class="stat-value" id="currentStreak">0 gün</span>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-title">Tamamlanma</span>
+        <span class="stat-value" id="completionPercentage">%0</span>
+    </div>
+
+    <div class="card stat-card">
+        <span class="stat-title">Toplam Görev</span>
+        <span class="stat-value" id="totalTasks">0</span>
+    </div>
+</div>
+
+<div class="top">
+    <div class="card chart-card">
+        <h3>Haftalık Ortalama</h3>
+        <div class="chart-wrapper">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card chart-card">
+        <h3>Günlük Skor</h3>
+        <div class="chart-wrapper">
+            <canvas id="dailyChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="card table-card">
+    <div class="table-scroll">
+        <table id="habitTable">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+
+<div class="modal" id="taskModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-content">
+        <h2 id="modalTitle">Yeni Görev</h2>
+
+        <form id="taskForm">
+            <div class="form-group">
+                <label for="taskName">Görev Adı</label>
+                <input id="taskName" type="text" maxlength="60" required autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="taskPoints">Puan</label>
+                <input id="taskPoints" type="number" min="1" step="1" value="1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="taskTarget">Hedef (aylık tamamlama sayısı)</label>
+                <input id="taskTarget" type="number" min="1" step="1" value="20" required>
+            </div>
+
+            <div class="form-actions">
+                <button id="closeTaskModal" class="cancel-button" type="button">İptal</button>
+                <button class="save-button" type="submit">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const STORAGE_KEY = "disciplineDashboardData";
+const SELECTED_MONTH_KEY = "disciplineDashboardSelectedMonth";
+const MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+];
+
+const currentDate = new Date();
+let selectedMonth = Number(localStorage.getItem(SELECTED_MONTH_KEY));
+if (!Number.isInteger(selectedMonth) || selectedMonth < 0 || selectedMonth > 11) {
+    selectedMonth = currentDate.getMonth();
+}
+
+function getDaysInMonth(monthIndex) {
+    return new Date(currentDate.getFullYear(), monthIndex + 1, 0).getDate();
+}
+
+function createDefaultTasks(monthIndex) {
+    const days = getDaysInMonth(monthIndex);
+
+    return [
+        {
+            id: createId(),
+            name: "Spor",
+            points: 5,
+            target: 20,
+            days: Array(days).fill(false)
+        },
+        {
+            id: createId(),
+            name: "YKS",
+            points: 5,
+            target: 25,
+            days: Array(days).fill(false)
+        },
+        {
+            id: createId(),
+            name: "Sağlık",
+            points: 3,
+            target: 25,
+            days: Array(days).fill(false)
+        }
+    ];
+}
+
+function createId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function normalizeTask(task, monthIndex) {
+    const dayCount = getDaysInMonth(monthIndex);
+    const days = Array.isArray(task.days) ? task.days.slice(0, dayCount) : [];
+
+    while (days.length < dayCount) {
+        days.push(false);
+    }
+
+    return {
+        id: task.id || createId(),
+        name: String(task.name || "Görev"),
+        points: Math.max(1, Number(task.points) || 1),
+        target: Math.max(1, Number(task.target) || dayCount),
+        days: days.map(Boolean)
+    };
+}
+
+function loadData() {
+    let storedData;
+
+    try {
+        storedData = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    } catch (error) {
+        storedData = null;
+    }
+
+    if (storedData && storedData.months) {
+        for (let month = 0; month < 12; month++) {
+            if (Array.isArray(storedData.months[month])) {
+                storedData.months[month] = storedData.months[month].map(task =>
+                    normalizeTask(task, month)
+                );
+            }
+        }
+
+        return storedData;
+    }
+
+    let legacyTasks;
+
+    try {
+        legacyTasks = JSON.parse(localStorage.getItem("tasks"));
+    } catch (error) {
+        legacyTasks = null;
+    }
+
+    const data = { months: {} };
+
+    if (Array.isArray(legacyTasks)) {
+        data.months[selectedMonth] = legacyTasks.map(task =>
+            normalizeTask(task, selectedMonth)
+        );
+    } else {
+        data.months[selectedMonth] = createDefaultTasks(selectedMonth);
+    }
+
+    return data;
+}
+
+let appData = loadData();
+
+function getTasks() {
+    if (!Array.isArray(appData.months[selectedMonth])) {
+        appData.months[selectedMonth] = [];
+    }
+
+    return appData.months[selectedMonth];
+}
+
+function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    localStorage.setItem(SELECTED_MONTH_KEY, String(selectedMonth));
+}
+
+function initializeMonthSelector() {
+    const select = document.getElementById("monthSelect");
+
+    MONTHS.forEach((month, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = month;
+        select.appendChild(option);
+    });
+
+    select.value = selectedMonth;
+
+    select.addEventListener("change", event => {
+        selectedMonth = Number(event.target.value);
+        save();
+        renderAll();
+    });
+}
+
+function renderTable() {
+    const table = document.getElementById("habitTable");
+    const thead = table.querySelector("thead");
+    const tbody = table.querySelector("tbody");
+    const tasks = getTasks();
+    const dayCount = getDaysInMonth(selectedMonth);
+
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    const headerRow = document.createElement("tr");
+    const fixedHeaders = ["Görev", "Puan", "Hedef", "Tamamlandı"];
+
+    fixedHeaders.forEach(title => {
+        const th = document.createElement("th");
+        th.textContent = title;
+        headerRow.appendChild(th);
+    });
+
+    for (let day = 1; day <= dayCount; day++) {
+        const th = document.createElement("th");
+        th.textContent = day;
+        headerRow.appendChild(th);
+    }
+
+    const actionHeader = document.createElement("th");
+    actionHeader.textContent = "İşlem";
+    headerRow.appendChild(actionHeader);
+    thead.appendChild(headerRow);
+
+    if (!tasks.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = dayCount + 5;
+        cell.className = "empty-state";
+        cell.textContent = "Bu ay için henüz görev yok.";
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+    }
+
+    tasks.forEach((task, taskIndex) => {
+        const row = document.createElement("tr");
+        const completed = task.days.filter(Boolean).length;
+
+        const nameCell = document.createElement("td");
+        nameCell.className = "task-name";
+        nameCell.textContent = task.name;
+        row.appendChild(nameCell);
+
+        const pointsCell = document.createElement("td");
+        pointsCell.textContent = task.points;
+        row.appendChild(pointsCell);
+
+        const targetCell = document.createElement("td");
+        targetCell.textContent = task.target;
+        row.appendChild(targetCell);
+
+        const completedCell = document.createElement("td");
+        completedCell.className = "count";
+        completedCell.textContent = completed;
+        row.appendChild(completedCell);
+
+        task.days.forEach((done, dayIndex) => {
+            const cell = document.createElement("td");
+            cell.className = "cell";
+            cell.title = `${task.name} — ${dayIndex + 1} ${MONTHS[selectedMonth]}`;
+            cell.setAttribute("role", "button");
+            cell.setAttribute("tabindex", "0");
+            cell.setAttribute("aria-label", cell.title);
+            cell.setAttribute("aria-pressed", String(done));
+
+            if (done) {
+                cell.classList.add("done");
+            }
+
+            const toggleCell = () => {
+                task.days[dayIndex] = !task.days[dayIndex];
+                save();
+                renderAll();
+            };
+
+            cell.addEventListener("click", toggleCell);
+            cell.addEventListener("keydown", event => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleCell();
+                }
+            });
+
+            row.appendChild(cell);
+        });
+
+        const actionCell = document.createElement("td");
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "delete-button";
+        deleteButton.textContent = "Sil";
+
+        deleteButton.addEventListener("click", () => {
+            if (confirm(`"${task.name}" görevini silmek istiyor musunuz?`)) {
+                tasks.splice(taskIndex, 1);
+                save();
+                renderAll();
+            }
+        });
+
+        actionCell.appendChild(deleteButton);
+        row.appendChild(actionCell);
+        tbody.appendChild(row);
+    });
+}
+
+function getDailyScores() {
+    const tasks = getTasks();
+    const dayCount = getDaysInMonth(selectedMonth);
+    const scores = [];
+
+    for (let day = 0; day < dayCount; day++) {
+        let score = 0;
+
+        tasks.forEach(task => {
+            if (task.days[day]) {
+                score += task.points;
+            }
+        });
+
+        scores.push(score);
+    }
+
+    return scores;
+}
+
+function calculateCurrentStreak() {
+    const tasks = getTasks();
+    const dayCount = getDaysInMonth(selectedMonth);
+
+    if (!tasks.length) {
+        return 0;
+    }
+
+    const activeDays = Array.from({ length: dayCount }, (_, dayIndex) =>
+        tasks.some(task => task.days[dayIndex])
+    );
+
+    let endIndex;
+
+    if (
+        selectedMonth === currentDate.getMonth() &&
+        currentDate.getFullYear() === new Date().getFullYear()
+    ) {
+        endIndex = Math.min(currentDate.getDate() - 1, dayCount - 1);
+
+        if (!activeDays[endIndex]) {
+            endIndex--;
+        }
+    } else {
+        endIndex = activeDays.lastIndexOf(true);
+    }
+
+    let streak = 0;
+
+    while (endIndex >= 0 && activeDays[endIndex]) {
+        streak++;
+        endIndex--;
+    }
+
+    return streak;
+}
+
+function calculateCompletionPercentage() {
+    const tasks = getTasks();
+
+    if (!tasks.length) {
+        return 0;
+    }
+
+    const totalTarget = tasks.reduce((sum, task) => sum + task.target, 0);
+    const completedTowardGoals = tasks.reduce((sum, task) => {
+        const completed = task.days.filter(Boolean).length;
+        return sum + Math.min(completed, task.target);
+    }, 0);
+
+    if (!totalTarget) {
+        return 0;
+    }
+
+    return Math.round((completedTowardGoals / totalTarget) * 100);
+}
+
+function updateDashboard() {
+    const tasks = getTasks();
+    const totalScore = getDailyScores().reduce((sum, score) => sum + score, 0);
+
+    document.getElementById("totalScore").textContent = totalScore;
+    document.getElementById("currentStreak").textContent =
+        `${calculateCurrentStreak()} gün`;
+    document.getElementById("completionPercentage").textContent =
+        `%${calculateCompletionPercentage()}`;
+    document.getElementById("totalTasks").textContent = tasks.length;
+}
+
+Chart.defaults.color = "#cfcfcf";
+Chart.defaults.borderColor = "#333";
+
+const commonChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+        intersect: false,
+        mode: "index"
+    },
+    plugins: {
+        legend: {
+            labels: {
+                color: "#d8d8d8"
+            }
+        }
+    },
+    scales: {
+        x: {
+            grid: {
+                color: "rgba(255,255,255,.05)"
+            },
+            ticks: {
+                color: "#a7a7a7"
+            }
+        },
+        y: {
+            beginAtZero: true,
+            grid: {
+                color: "rgba(255,255,255,.08)"
+            },
+            ticks: {
+                color: "#a7a7a7",
+                precision: 0
+            }
+        }
+    }
+};
+
+const dailyChart = new Chart(
+    document.getElementById("dailyChart"),
+    {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "Günlük Skor",
+                data: [],
+                borderColor: "#00c853",
+                backgroundColor: "rgba(0,200,83,.15)",
+                pointBackgroundColor: "#00c853",
+                pointBorderColor: "#00c853",
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                borderWidth: 2,
+                tension: .3,
+                fill: true
+            }]
+        },
+        options: commonChartOptions
+    }
+);
+
+const weeklyChart = new Chart(
+    document.getElementById("weeklyChart"),
+    {
+        type: "bar",
+        data: {
+            labels: [],
+            datasets: [{
+                label: "Haftalık Ortalama",
+                data: [],
+                backgroundColor: "rgba(0,200,83,.7)",
+                borderColor: "#00c853",
+                borderWidth: 1,
+                borderRadius: 5
+            }]
+        },
+        options: commonChartOptions
+    }
+);
+
+function updateCharts() {
+    const daily = getDailyScores();
+    const dayCount = getDaysInMonth(selectedMonth);
+
+    dailyChart.data.labels = Array.from(
+        { length: dayCount },
+        (_, index) => index + 1
+    );
+    dailyChart.data.datasets[0].data = daily;
+    dailyChart.update();
+
+    const weekly = [];
+    const weeklyLabels = [];
+    const weekCount = Math.ceil(dayCount / 7);
+
+    for (let weekIndex = 0; weekIndex < weekCount; weekIndex++) {
+        const start = weekIndex * 7;
+        const weekScores = daily.slice(start, start + 7);
+        const average = weekScores.length
+            ? weekScores.reduce((sum, score) => sum + score, 0) / weekScores.length
+            : 0;
+
+        weekly.push(Number(average.toFixed(1)));
+        weeklyLabels.push(`${weekIndex + 1}. Hafta`);
+    }
+
+    weeklyChart.data.labels = weeklyLabels;
+    weeklyChart.data.datasets[0].data = weekly;
+    weeklyChart.update();
+}
+
+const taskModal = document.getElementById("taskModal");
+const taskForm = document.getElementById("taskForm");
+const taskNameInput = document.getElementById("taskName");
+const taskPointsInput = document.getElementById("taskPoints");
+const taskTargetInput = document.getElementById("taskTarget");
+
+function openTaskModal() {
+    taskForm.reset();
+    taskPointsInput.value = 1;
+    taskTargetInput.value = Math.min(20, getDaysInMonth(selectedMonth));
+    taskModal.classList.add("open");
+    taskNameInput.focus();
+}
+
+function closeTaskModal() {
+    taskModal.classList.remove("open");
+}
+
+document.getElementById("openTaskModal").addEventListener("click", openTaskModal);
+document.getElementById("closeTaskModal").addEventListener("click", closeTaskModal);
+
+taskModal.addEventListener("click", event => {
+    if (event.target === taskModal) {
+        closeTaskModal();
+    }
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && taskModal.classList.contains("open")) {
+        closeTaskModal();
+    }
+});
+
+taskForm.addEventListener("submit", event => {
+    event.preventDefault();
+
+    const name = taskNameInput.value.trim();
+    const points = Number(taskPointsInput.value);
+    const target = Number(taskTargetInput.value);
+
+    if (!name || !Number.isFinite(points) || points < 1 ||
+        !Number.isFinite(target) || target < 1) {
+        return;
+    }
+
+    getTasks().push({
+        id: createId(),
+        name,
+        points: Math.round(points),
+        target: Math.round(target),
+        days: Array(getDaysInMonth(selectedMonth)).fill(false)
+    });
+
+    save();
+    closeTaskModal();
+    renderAll();
+});
+
+function renderAll() {
+    renderTable();
+    updateDashboard();
+    updateCharts();
+}
+
+initializeMonthSelector();
+save();
+renderAll();
+</script>
+
+</body>
+</html>
